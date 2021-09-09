@@ -2,7 +2,11 @@
 """
 Created on Thu Aug 5 11:47:04 2021
 @author: eneemann
-Script to count voters within each feature of a polygon layer
+UGRC Script to count voters within each feature of a polygon layer
+
+8/25/2021 v1.0: original version of code
+9/9/2021 v1.1: more robust handling of OID fieldnames
+9/9/2021 v1.2: add JoinID to use for joins
 """
 
 import arcpy
@@ -70,7 +74,7 @@ arcpy.AddMessage(f'Final county list: {county_list}')
 arcpy.AddMessage(f"County numbers: {numbers}")
 
 
-#: Check for existing fields and delete, if necessary
+#: Check for existing fields and delete/add, if necessary
 field_list = arcpy.ListFields(precinct_polygons)
 field_names = [field.name for field in field_list]
 
@@ -80,6 +84,19 @@ if 'sum_voters' in field_names:
 if 'Point_Count' in field_names:
     arcpy.AddMessage('Deleting existing Point_Count field ...')
     arcpy.management.DeleteField(precinct_polygons, 'Point_Count')
+
+if 'JoinID' not in field_names:
+    arcpy.AddMessage("Adding 'JoinID' field to use for joins...")
+    arcpy.AddField_management(precinct_polygons, "JoinID", "LONG")
+    
+#: Recalculate JoinID field for current features to ensure match with intermediate layer
+arcpy.AddMessage("Updating 'JoinID' field ...")
+with arcpy.da.UpdateCursor(precinct_polygons, 'JoinID') as cursor:
+    join = 1
+    for row in cursor:
+        row[0] = join
+        join += 1
+        cursor.updateRow(row)
 
 #: Get timestamp for FC name
 now = time.strftime("%Y%m%d_%H%M%S")
@@ -110,7 +127,7 @@ arcpy.analysis.SummarizeWithin(precinct_polygons, temp_path, out_name, "KEEP_ALL
 arcpy.AddMessage(f"Output FC named: {out_name} ...")
 
 #: Join sum_voters field back to the original data layer
-arcpy.management.JoinField(precinct_polygons, 'OBJECTID', out_name, 'OBJECTID', ['sum_voters', 'Point_Count'])
+arcpy.management.JoinField(precinct_polygons, 'JoinID', out_name, 'JoinID', ['sum_voters', 'Point_Count'])
 
 #: Delete temp_voter_fc
 if arcpy.Exists(temp_path):
