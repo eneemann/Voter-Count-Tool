@@ -7,6 +7,7 @@ UGRC Script to count voters within each feature of a polygon layer
 8/25/2021 v1.0: original version of code
 9/9/2021 v1.1: more robust handling of OID fieldnames
 9/9/2021 v1.2: add JoinID to use for joins
+9/9/2021 v1.3: more robust handling of voter count field names
 """
 
 import arcpy
@@ -78,12 +79,10 @@ arcpy.AddMessage(f"County numbers: {numbers}")
 field_list = arcpy.ListFields(precinct_polygons)
 field_names = [field.name for field in field_list]
 
-if 'sum_voters' in field_names:
-    arcpy.AddMessage('Deleting existing sum_voters field ...')
-    arcpy.management.DeleteField(precinct_polygons, 'sum_voters')
-if 'Point_Count' in field_names:
-    arcpy.AddMessage('Deleting existing Point_Count field ...')
-    arcpy.management.DeleteField(precinct_polygons, 'Point_Count')
+for field in field_names:
+    if field.casefold().startswith('sum_voter') or field.casefold().startswith('point_count'):
+        arcpy.AddMessage(f'Deleting existing field: {field} ...')
+        arcpy.management.DeleteField(precinct_polygons, field)   
 
 if 'JoinID' not in field_names:
     arcpy.AddMessage("Adding 'JoinID' field to use for joins...")
